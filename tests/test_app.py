@@ -26,6 +26,15 @@ def test_home():
     assert "Archivo TIC" in r.text
 
 
+def test_frontend_uses_health_environment_and_sync_state():
+    frontend = (PROJECT_ROOT / "assets/js/app.js").read_text(encoding="utf-8")
+
+    assert "r.environment === 'production'" in frontend
+    assert "syncButton.hidden = !r.sync_enabled" in frontend
+    assert "Servidor disponible" in frontend
+    assert "Servidor local listo" in frontend
+
+
 def test_local_launcher_imports_asgi_without_module_name_collision():
     result = subprocess.run(
         [sys.executable, "-c", "import run_local; print(type(run_local.app).__name__)"],

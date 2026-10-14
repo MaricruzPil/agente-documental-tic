@@ -256,11 +256,20 @@ el('question').addEventListener('keydown', e => {
 
 setupNavigation();
 
+const syncButton = el('sync');
+syncButton.disabled = true;
+
 api.health()
   .then(r => {
-    el('health').textContent = r.configured ? 'Servidor local listo' : 'Configuracion pendiente';
+    const production = r.environment === 'production';
+    syncButton.hidden = !r.sync_enabled;
+    syncButton.disabled = !r.sync_enabled;
+    el('health').textContent = r.configured
+      ? (production ? 'Servidor disponible' : 'Servidor local listo')
+      : 'Configuracion pendiente';
   })
   .catch(() => {
+    syncButton.hidden = true;
     el('health').textContent = 'Sin conexion';
   });
 
