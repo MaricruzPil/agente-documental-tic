@@ -100,4 +100,52 @@ OpenAI cobra por el uso de modelos, búsqueda y almacenamiento según su tarifar
 
 ## Entrega
 
+## 10. Preparacion actual para Vercel (Camino 1)
+
+La arquitectura prevista para Vercel es de consultas documentales. Google Drive y OAuth Desktop permanecen en localhost; Vercel no necesita `credentials.json`, `token.json` ni ejecutar `InstalledAppFlow`. La sincronizacion local actualiza el Vector Store y el manifiesto local. Despues de cambios documentales, se debe generar y configurar nuevamente el inventario de produccion.
+
+### FastAPI y archivos estaticos
+
+`app.py` importa `app` desde `app.main` y solo inicia Uvicorn dentro de `if __name__ == "__main__"`. Puede importarse como aplicacion ASGI sin arrancar un servidor manualmente. Vercel detecta FastAPI mediante la aplicacion ASGI exportada y las dependencias de `requirements.txt`; no se requiere `vercel.json` para esta configuracion basica. Si mas adelante se necesita fijar duracion, region o exclusiones del bundle, se podra agregar explicitamente.
+
+La ruta `/` sirve `index.html` y `/assets` sirve CSS y JavaScript mediante `StaticFiles`. El frontend usa rutas relativas como `/api/ask` y `/api/documents`, por lo que puede convivir con el backend en el mismo dominio de Vercel.
+
+### Variables de entorno
+
+En localhost se usan `APP_ENV=local`, `SYNC_ENABLED=true`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `GOOGLE_DRIVE_FOLDER_ID` y, opcionalmente, `VECTOR_STORE_ID`, `LOCAL_ADMIN_KEY` y `OPENAI_TIMEOUT_SECONDS`.
+
+En Vercel se deben configurar como variables privadas:
+
+- `APP_ENV=production`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `VECTOR_STORE_ID`
+- `DOCUMENT_INVENTORY_JSON`
+- `OPENAI_TIMEOUT_SECONDS=30`
+- `PUBLIC_ASK_ENABLED=false` hasta configurar y probar el WAF
+
+`GOOGLE_DRIVE_FOLDER_ID`, `credentials.json`, `token.json` y `SYNC_ENABLED` no son necesarios para el runtime publico. La sincronizacion queda bloqueada en produccion.
+
+### Inventario de produccion
+
+`DOCUMENT_INVENTORY_JSON` contiene unicamente `openai_file_id`, `name` y `url`. El backend valida JSON, campos obligatorios y duplicados. `/api/documents` solo devuelve `name` y `url`; los identificadores internos no se envian al frontend.
+
+No se debe publicar el inventario real en GitHub ni incluir el `data/manifest.json` local. Si se elimina, modifica o agrega un PDF, primero se sincroniza desde localhost, se verifica el Vector Store y despues se actualiza la variable de produccion.
+
+### Seguridad y disponibilidad
+
+`PUBLIC_ASK_ENABLED=false` deshabilita `/api/ask` en produccion antes de inicializar el cliente OpenAI. Para habilitar consultas, primero se debe crear en Vercel una regla WAF de rate limiting para `POST /api/ask`, por IP, y establecer limites de gasto y alertas en el proyecto de OpenAI. El codigo valida preguntas de 3 a 3000 caracteres y usa un timeout de OpenAI configurable entre 1 y 120 segundos, sin reintentos automaticos.
+
+El timeout del cliente OpenAI no sustituye el limite de duracion de Vercel. Si se necesita fijarlo, se configura desde Functions en Vercel o mediante `maxDuration` en `vercel.json`, respetando el plan contratado. No se debe habilitar la sincronizacion publica ni colocar claves en JavaScript.
+
+### Pruebas antes de publicar
+
+Desde la raiz del proyecto:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests -q
+```
+
+Antes de un despliegue publico se debe comprobar que localhost sigue sincronizando, que produccion carga el inventario sin leer el manifiesto local, que `/api/documents` no expone `openai_file_id`, que `/api/sync` permanece bloqueado, que `/api/ask` no realiza llamadas mientras `PUBLIC_ASK_ENABLED=false`, y que el visor conserva los enlaces publicos de Google Drive.
+
 Repositorio GitHub con historia de commits, URL de Vercel si culminas el reto (o documentación del bloqueo), y conclusiones sobre OAuth, Google Drive API, RAG, File Search, FastAPI, OOP, Git/GitHub y seguridad.

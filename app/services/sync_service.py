@@ -14,6 +14,9 @@ MANIFEST = Path(__file__).resolve().parents[2] / "data" / "manifest.json"
 _LOCK = threading.Lock()
 SUPPORTED = {"application/pdf", "text/plain", "application/vnd.google-apps.document"}
 
+class InventoryConfigurationError(ValueError):
+    """El inventario de producciÃ³n no cumple el contrato esperado."""
+
 class SyncService:
     def __init__(self, client=None, drive=None):
         self.client = client or OpenAI(api_key=settings.openai_api_key)
@@ -23,6 +26,43 @@ class SyncService:
     def load_manifest() -> dict:
         if not MANIFEST.exists(): return {"vector_store_id": "", "documents": {}}
         return json.loads(MANIFEST.read_text(encoding="utf-8"))
+
+    @staticmethod
+    def load_inventory() -> dict:
+        if settings.app_env != "production":
+            return SyncService.load_manifest()
+
+        raw = os.getenv("DOCUMENT_INVENTORY_JSON", "")
+        if not raw:
+            raise InventoryConfigurationError("Falta DOCUMENT_INVENTORY_JSON en producciÃ³n")
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise InventoryConfigurationError("DOCUMENT_INVENTORY_JSON no es JSON vÃ¡lido") from exc
+
+        documents = payload.get("documents") if isinstance(payload, dict) else None
+        if not isinstance(documents, list) or not documents:
+            raise InventoryConfigurationError("El inventario debe contener una lista no vacÃ­a de documentos")
+
+        normalized = {}
+        openai_ids = set()
+        for index, item in enumerate(documents, start=1):
+            if not isinstance(item, dict):
+                raise InventoryConfigurationError(f"Documento invÃ¡lido en la posiciÃ³n {index}")
+            required = ("openai_file_id", "name", "url")
+            if any(not isinstance(item.get(field), str) or not item[field].strip() for field in required):
+                raise InventoryConfigurationError(f"Faltan campos obligatorios en el documento {index}")
+            openai_file_id = item["openai_file_id"].strip()
+            if openai_file_id in openai_ids:
+                raise InventoryConfigurationError("El inventario contiene openai_file_id duplicados")
+            openai_ids.add(openai_file_id)
+            normalized[openai_file_id] = {
+                "openai_file_id": openai_file_id,
+                "name": item["name"].strip(),
+                "url": item["url"].strip(),
+            }
+
+        return {"vector_store_id": "", "documents": normalized}
 
     @staticmethod
     def save_manifest(data: dict):

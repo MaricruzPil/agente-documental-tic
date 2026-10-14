@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 import logging
+import json
+from types import SimpleNamespace
 
 from app.main import app
 from app.services.agent_service import (
@@ -9,6 +11,7 @@ from app.services.agent_service import (
     UNVERIFIED_DOCUMENTARY_ANSWER,
 )
 from app.services.sync_service import SyncService
+from app.services.sync_service import InventoryConfigurationError
 
 client = TestClient(app)
 
@@ -19,6 +22,26 @@ def test_home():
 
 def test_health():
     assert client.get("/api/health").status_code == 200
+
+
+def test_production_health_does_not_require_drive(monkeypatch):
+    import app.main as main_module
+
+    production_settings = SimpleNamespace(
+        app_env="production",
+        openai_api_key="test-key",
+        vector_store_id="vs_prod",
+        sync_enabled=False,
+        ask_enabled=False,
+    )
+    monkeypatch.setattr(main_module, "settings", production_settings)
+    monkeypatch.setattr(SyncService, "load_inventory", staticmethod(lambda: {"documents": {"file_prod": {}}}))
+
+    response = client.get("/api/health")
+
+    assert response.status_code == 200
+    assert response.json()["configured"] is True
+    assert response.json()["sync_enabled"] is False
 
 def test_documents():
     r = client.get("/api/documents")
@@ -33,6 +56,153 @@ def test_sync_not_public():
     # FastAPI TestClient IP ficticia no loopback: bloqueado por diseño.
     r = client.post("/api/sync")
     assert r.status_code == 403
+
+
+def test_sync_is_disabled_in_production_before_service_initialization(monkeypatch):
+    import app.main as main_module
+
+    production_settings = SimpleNamespace(
+        sync_enabled=False,
+        openai_api_key="",
+        local_admin_key="",
+    )
+    monkeypatch.setattr(main_module, "settings", production_settings)
+    monkeypatch.setattr(
+        main_module,
+        "SyncService",
+        lambda: (_ for _ in ()).throw(AssertionError("SyncService no debe inicializarse")),
+    )
+
+    response = client.post("/api/sync")
+
+    assert response.status_code == 404
+    assert "no disponible" in response.json()["detail"]
+
+
+def test_public_ask_is_disabled_without_openai_call(monkeypatch):
+    import app.main as main_module
+
+    production_settings = SimpleNamespace(
+        ask_enabled=False,
+        openai_api_key="",
+    )
+    monkeypatch.setattr(main_module, "settings", production_settings)
+    monkeypatch.setattr(
+        main_module,
+        "AgentService",
+        lambda: (_ for _ in ()).throw(AssertionError("AgentService no debe inicializarse")),
+    )
+
+    response = client.post("/api/ask", json={"question": "Pregunta vÃ¡lida"})
+
+    assert response.status_code == 503
+    assert "no disponibles" in response.json()["detail"]
+
+
+def test_local_ask_remains_enabled_by_default(monkeypatch):
+    import app.main as main_module
+
+    calls = []
+    local_settings = SimpleNamespace(ask_enabled=True, openai_api_key="test-key")
+    monkeypatch.setattr(main_module, "settings", local_settings)
+
+    class StubAgent:
+        def __init__(self):
+            calls.append("initialized")
+
+        def ask(self, question, use_search):
+            calls.append((question, use_search))
+            return {"success": True, "answer": "ok", "sources": [], "clarification_request": False}
+
+    monkeypatch.setattr(main_module, "AgentService", StubAgent)
+    response = client.post("/api/ask", json={"question": "Pregunta vÃ¡lida", "use_search": False})
+
+    assert response.status_code == 200
+    assert calls == ["initialized", ("Pregunta vÃ¡lida", False)]
+
+
+def test_ask_rejects_question_over_maximum_before_agent_initialization(monkeypatch):
+    import app.main as main_module
+
+    monkeypatch.setattr(main_module, "settings", SimpleNamespace(ask_enabled=True, openai_api_key="test-key"))
+    monkeypatch.setattr(
+        main_module,
+        "AgentService",
+        lambda: (_ for _ in ()).throw(AssertionError("AgentService no debe inicializarse")),
+    )
+
+    response = client.post("/api/ask", json={"question": "x" * 3001})
+
+    assert response.status_code == 422
+
+
+def production_inventory():
+    return json.dumps({
+        "documents": [{
+            "openai_file_id": "file_prod",
+            "name": "produccion.pdf",
+            "url": "https://drive.google.com/file/d/prod/view",
+        }]
+    })
+
+
+def test_local_inventory_keeps_reading_manifest(monkeypatch):
+    monkeypatch.setattr(SyncService, "load_manifest", staticmethod(fake_manifest))
+    monkeypatch.setattr("app.services.sync_service.settings", SimpleNamespace(app_env="local"))
+
+    inventory = SyncService.load_inventory()
+
+    assert set(inventory["documents"]) == {"drive_1", "drive_2"}
+
+
+def test_production_documents_use_inventory_without_manifest(monkeypatch):
+    monkeypatch.setenv("DOCUMENT_INVENTORY_JSON", production_inventory())
+    monkeypatch.setattr("app.services.sync_service.settings", SimpleNamespace(app_env="production"))
+    monkeypatch.setattr(SyncService, "load_manifest", staticmethod(
+        lambda: (_ for _ in ()).throw(AssertionError("No debe leer el manifiesto local"))
+    ))
+
+    response = client.get("/api/documents")
+
+    assert response.status_code == 200
+    assert response.json()["indexed"] == 1
+    assert response.json()["documents"] == [{
+        "name": "produccion.pdf",
+        "url": "https://drive.google.com/file/d/prod/view",
+    }]
+    assert "file_prod" not in response.text
+
+
+def test_production_inventory_rejects_duplicates_without_manifest_fallback(monkeypatch):
+    monkeypatch.setenv("DOCUMENT_INVENTORY_JSON", json.dumps({
+        "documents": [
+            {"openai_file_id": "same", "name": "a.pdf", "url": "https://drive.google.com/file/d/a/view"},
+            {"openai_file_id": "same", "name": "b.pdf", "url": "https://drive.google.com/file/d/b/view"},
+        ]
+    }))
+    monkeypatch.setattr("app.services.sync_service.settings", SimpleNamespace(app_env="production"))
+
+    response = client.get("/api/documents")
+
+    assert response.status_code == 503
+    assert "duplicados" in response.json()["detail"]
+
+
+def test_production_inventory_resolves_rag_sources(monkeypatch):
+    monkeypatch.setenv("DOCUMENT_INVENTORY_JSON", production_inventory())
+    monkeypatch.setattr("app.services.sync_service.settings", SimpleNamespace(app_env="production"))
+    service = AgentService()
+
+    sources = service.sources_from_evidence(
+        [{"id": "E1", "file_id": "file_prod"}],
+        ["E1"],
+        SyncService.load_inventory()["documents"],
+    )
+
+    assert sources == [{
+        "name": "produccion.pdf",
+        "url": "https://drive.google.com/file/d/prod/view",
+    }]
 
 
 class FakeResponse:

@@ -70,7 +70,11 @@ class ClarityEvaluationError(RuntimeError):
 
 class AgentService:
     def __init__(self, client=None):
-        self.client = client or OpenAI(api_key=settings.openai_api_key)
+        self.client = client or OpenAI(
+            api_key=settings.openai_api_key,
+            timeout=settings.openai_timeout_seconds,
+            max_retries=0,
+        )
 
     def evaluate_clarity(self, question: str):
         try:
@@ -234,7 +238,7 @@ class AgentService:
         return sources
 
     def ask(self, question: str, use_search=True):
-        manifest = SyncService.load_manifest()
+        manifest = SyncService.load_inventory()
         store = settings.vector_store_id or manifest.get("vector_store_id")
         clarity = self.evaluate_clarity(question)
         if not clarity["clear"]:
