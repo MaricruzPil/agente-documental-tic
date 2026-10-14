@@ -12,3 +12,4 @@ class AskResponse(BaseModel):
     success: bool
     answer: str
     sources: list[Source]
+    clarification_request: bool = False

@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.models.documento import AskRequest, AskResponse
 from app.services.sync_service import SyncService
-from app.services.agent_service import AgentService
+from app.services.agent_service import AgentService, ClarityEvaluationError
 
 ROOT = Path(__file__).resolve().parents[1]
 app = FastAPI(title="Archivo TIC IA", version="1.0.0")
@@ -46,6 +46,8 @@ def ask(payload: AskRequest):
         return AgentService().ask(payload.question, payload.use_search)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except ClarityEvaluationError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
     except Exception:
         raise HTTPException(status_code=502, detail="Error al consultar OpenAI. Revisa el registro local.")
 

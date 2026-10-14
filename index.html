@@ -1,1 +1,118 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Archivo TIC IA | Agente documental</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link href="/assets/css/styles.css" rel="stylesheet"></head><body><header class="hero py-4"><div class="container d-flex flex-wrap justify-content-between align-items-center gap-3"><div><div class="eyebrow">PRÁCTICA 2.3 · INTELIGENCIA ARTIFICIAL APLICADA A LAS TIC</div><h1 class="h2 mb-1">Archivo TIC <span>IA</span></h1><p class="m-0 text-white-50">Agente documental con Google Drive y búsqueda semántica RAG</p></div><span class="badge rounded-pill border border-light text-light" id="health">Comprobando servidor…</span></div></header><main class="container py-4"><div class="row g-4"><div class="col-lg-4"><section class="card shell h-100"><div class="card-body"><div class="d-flex align-items-center justify-content-between"><h2 class="h5 mb-0">Base documental</h2><span class="badge text-bg-info" id="doc-count">0</span></div><p class="small text-secondary mt-2">Archivos indexados desde una carpeta autorizada de Google Drive.</p><div id="documents" class="doc-list" aria-live="polite">Sin documentos indexados.</div><button type="button" id="sync" class="btn btn-outline-primary w-100 mt-3">Sincronizar desde Drive</button><p class="small text-secondary mt-2 mb-0">La primera sincronización abrirá OAuth en el equipo donde corre Python. Uso exclusivamente local.</p></div></section></div><div class="col-lg-8"><section class="card shell"><div class="card-body"><h2 class="h5">Consultar al agente</h2><label class="form-label mt-2" for="question">Pregunta sobre los documentos</label><textarea class="form-control" id="question" rows="3" maxlength="3000" placeholder="¿Qué documentos explican Amazon RDS y sus conexiones?" required></textarea><div class="d-flex flex-wrap justify-content-between gap-2 align-items-center mt-3"><div class="form-check form-switch"><input id="use-search" class="form-check-input" type="checkbox" checked><label class="form-check-label" for="use-search">Activar File Search (RAG)</label></div><button class="btn btn-primary" type="button" id="ask">Consultar agente</button></div><div id="message" role="status" class="small mt-3" aria-live="polite"></div></div></section><section class="card shell mt-4"><div class="card-body"><h2 class="h5">Respuesta documental</h2><div id="answer" class="answer mt-3" aria-live="polite">Escribe una pregunta para comenzar.</div><h3 class="h6 mt-4">Fuentes verificables</h3><ul id="sources" class="list-group list-group-flush"></ul></div></section></div></div></main><footer class="container pb-4 small text-center text-secondary">Tecnológico Nacional de México · Campus Pachuca · Ingeniería en Sistemas Computacionales · Práctica 2.3</footer><script type="module" src="/assets/js/app.js"></script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Archivo TIC IA | Agente documental</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/css/styles.css" rel="stylesheet">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navegacion principal">
+      <a class="brand" href="#consulta" aria-label="Archivo TIC IA">
+        <span class="brand-mark">AI</span>
+        <span>
+          <strong>Archivo TIC IA</strong>
+          <small>Centro documental</small>
+        </span>
+      </a>
+
+      <nav class="side-nav" aria-label="Secciones">
+        <a class="nav-pill active" href="#consulta">Consulta</a>
+        <a class="nav-pill" href="#respuesta-panel">Respuesta</a>
+        <a class="nav-pill" href="#visor">Vista previa</a>
+      </nav>
+
+      <div class="sidebar-status">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="badge rounded-pill" id="health">Comprobando servidor...</span>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="workspace-header">
+        <div>
+          <p class="eyebrow mb-2">Practica 2.3 · Inteligencia artificial aplicada a las TIC</p>
+          <h1>Centro documental</h1>
+          <p class="m-0 text-secondary">Consulta documentos indexados desde Google Drive con busqueda semantica RAG.</p>
+        </div>
+        <button type="button" id="sync" class="btn btn-soft">Sincronizar Drive</button>
+      </header>
+
+      <div class="workspace-grid">
+        <section class="panel panel-query" id="consulta">
+          <div class="panel-heading">
+            <div>
+              <span class="section-kicker">Agente</span>
+              <h2>Consultar al agente</h2>
+            </div>
+          </div>
+
+          <label class="form-label" for="question">Pregunta sobre los documentos</label>
+          <textarea class="form-control query-input" id="question" rows="5" maxlength="3000" placeholder="¿De que trata la clase 35 de fonetica del IMPI?" required></textarea>
+
+          <div class="query-actions">
+            <div class="form-check form-switch rag-switch">
+              <input id="use-search" class="form-check-input" type="checkbox" checked>
+              <label class="form-check-label" for="use-search">Activar File Search (RAG)</label>
+            </div>
+            <button class="btn btn-primary" type="button" id="ask">Consultar agente</button>
+          </div>
+
+          <div id="message" role="status" class="status-message" aria-live="polite"></div>
+        </section>
+
+        <section class="panel panel-answer" id="respuesta-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="section-kicker">Resultado</span>
+              <h2>Respuesta documental</h2>
+            </div>
+          </div>
+          <div id="answer" class="answer" aria-live="polite">Escribe una pregunta para comenzar.</div>
+
+          <div class="sources-head">
+            <h3>Fuentes verificables</h3>
+            <span class="source-hint">Selecciona una fuente para previsualizarla</span>
+          </div>
+          <ul id="sources" class="source-list"></ul>
+        </section>
+
+        <section class="panel panel-library" id="biblioteca">
+          <div class="panel-heading compact">
+            <div>
+              <span class="section-kicker">Google Drive</span>
+              <h2>Biblioteca</h2>
+            </div>
+            <span class="count-pill" id="doc-count">0</span>
+          </div>
+          <p class="panel-note">Archivos indexados desde una carpeta autorizada. La sincronizacion se ejecuta localmente.</p>
+          <div id="documents" class="doc-list" aria-live="polite">Sin documentos indexados.</div>
+        </section>
+
+        <section class="panel panel-preview" id="visor">
+          <div class="panel-heading compact">
+            <div>
+              <span class="section-kicker">Documento</span>
+              <h2>Vista previa PDF</h2>
+            </div>
+            <a id="preview-open" class="btn btn-ghost disabled" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">Abrir</a>
+          </div>
+          <div id="preview-state" class="preview-state">
+            Selecciona un documento o una fuente verificable para intentar previsualizarlo.
+          </div>
+          <iframe id="preview-frame" class="preview-frame" title="Vista previa del documento seleccionado"></iframe>
+          <p class="preview-note">Si Google Drive bloquea la incrustacion, utiliza el boton Abrir para ver el documento original.</p>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <footer class="app-footer">Tecnologico Nacional de Mexico · Campus Pachuca · Ingenieria en Sistemas Computacionales</footer>
+  <script type="module" src="/assets/js/app.js"></script>
+</body>
+</html>
