@@ -1,35 +1,79 @@
-# 2.3 Agente documental con Google Drive — Archivo TIC IA
+# Archivo TIC IA
 
-Proyecto académico de **Inteligencia artificial aplicada a las TIC**, Tecnológico Nacional de México, campus Pachuca. Continuación de **2.2 Agente investigador**: se reemplaza la búsqueda pública Web Search por recuperación documental de **Google Drive**, **OpenAI Vector Stores** y **File Search (RAG)**.
+Agente documental académico para consultar documentos autorizados mediante FastAPI, Google Drive OAuth, OpenAI Vector Store y recuperación aumentada con generación (RAG).
 
-## Propósito pedagógico
+Aplicación pública: <https://agente-documental-tic-one.vercel.app/>
 
-El alumno comprenderá que una organización necesita consultar documentos propios y autorizados, no solamente Internet. Identificará el papel de OAuth, Google Drive API, sincronización, indexación semántica, recuperación de contexto, respuestas sustentadas y trazabilidad mediante fuentes. Comparará respuestas **sin** y **con** acceso documental, observará qué sucede al modificar una fuente y realizará todas las pruebas iniciales en **localhost**. El despliegue a Vercel es un **reto autónomo**, no una configuración lista para producción.
+## Funcionalidades
+
+- Biblioteca de documentos indexados.
+- Preguntas documentales en español.
+- Evaluación semántica de claridad antes de buscar.
+- Recuperación de fragmentos desde OpenAI Vector Store.
+- Respuestas fundamentadas en evidencia recuperada.
+- Fuentes verificables relacionadas con los documentos utilizados.
+- Solicitudes de aclaración para preguntas sin referente suficiente.
+- Vista previa y apertura de PDF mediante enlaces públicos de Google Drive.
+- Sincronización de Google Drive disponible únicamente en localhost.
+
+## Tecnologías
+
+- Python 3.11 o posterior.
+- FastAPI y Uvicorn.
+- Pydantic para validación de solicitudes.
+- Google Drive API y OAuth Desktop para el entorno local.
+- OpenAI Responses API y Vector Stores para RAG.
+- HTML, CSS y JavaScript para el frontend.
+- Pytest y TestClient para pruebas automatizadas.
+- Vercel Python Runtime para producción.
 
 ## Arquitectura
 
-- `app/main.py`: FastAPI, endpoints REST, frontend estático y protección local de sincronización.
-- `app/core/config.py`: configuración y secretos cargados desde `.env`.
-- `app/models/documento.py`: modelos de solicitud y respuesta.
-- `app/services/drive_service.py`: OAuth Desktop, listado limitado a una carpeta y descarga/exportación de archivos.
-- `app/services/sync_service.py`: Vector Store, manifiesto de archivos, altas, cambios y bajas.
-- `app/services/agent_service.py`: Responses API + File Search y fuentes verificadas por anotaciones de archivo.
-- `index.html` y `assets/`: interfaz Bootstrap 5 y clases JavaScript.
-- `data/manifest.json`: estado local del índice (no se publica).
+`run_local.py` es el lanzador de desarrollo. Importa la aplicación ASGI desde `app.main` y solo inicia Uvicorn cuando se ejecuta directamente.
 
-## 1. Requisitos
+`app/main.py` define la aplicación FastAPI y las rutas `/`, `/assets`, `/api/health`, `/api/documents`, `/api/ask` y `/api/sync`.
 
-Python 3.11+, VS Code, Git, cuentas de Google Cloud y OpenAI API con créditos, navegador y documentos de prueba autorizados. **Las claves y los archivos de Drive no se incluyen en el ZIP.**
+`app/services/drive_service.py` gestiona OAuth local, lectura de la carpeta de Drive y descarga de documentos.
 
-## 2. Configuración Google Drive
+`app/services/sync_service.py` compara Drive con el manifiesto local, sube o actualiza archivos en el Vector Store y retira documentos eliminados.
 
-1. En [Google Cloud Console](https://console.cloud.google.com/), crea un proyecto y habilita **Google Drive API**.
-2. Configura **Google Auth Platform**, pantalla de consentimiento y usuarios de prueba si corresponde.
-3. Crea credenciales OAuth 2.0 de tipo **Desktop app** y descarga el archivo a la raíz del proyecto como `credentials.json`.
-4. Crea una carpeta de Google Drive con **al menos cinco** documentos autorizados. Admite PDF, TXT y Google Docs nativos. Extrae el ID de su URL `/folders/ID`.
-5. Este ejercicio utiliza el alcance `drive.readonly` para lectura; puede exigir validaciones adicionales al distribuir una app real. Usa una cuenta y una carpeta de laboratorio sin datos personales.
+`app/services/agent_service.py` evalúa claridad, busca evidencia, genera respuestas documentales y resuelve fuentes mediante el inventario disponible.
 
-## 3. Preparar proyecto en Windows (PowerShell)
+En localhost, el inventario se lee desde `data/manifest.json`. En producción, se lee exclusivamente desde `DOCUMENT_INVENTORY_JSON`.
+
+## Estructura principal
+
+```text
+.
+├── app/
+│   ├── core/config.py          Configuración y variables de entorno
+│   ├── main.py                 Aplicación FastAPI ASGI
+│   ├── models/documento.py     Esquemas de solicitudes y respuestas
+│   └── services/
+│       ├── agent_service.py    Evaluación, RAG y fuentes
+│       ├── drive_service.py    OAuth y lectura de Google Drive
+│       └── sync_service.py     Sincronización e inventario local
+├── assets/
+│   ├── css/styles.css          Estilos del frontend
+│   └── js/                     Cliente API e interacción de la interfaz
+├── data/                       Datos locales ignorados por Git
+│   └── manifest.json            Inventario local del Vector Store
+├── tests/test_app.py            Pruebas automatizadas
+├── index.html                   Interfaz web
+├── run_local.py                 Lanzador local
+├── requirements.txt             Dependencias Python
+└── .env.example                 Plantilla sin secretos
+```
+
+## Requisitos locales
+
+Se necesita Python, Git, una cuenta de OpenAI con acceso a la API, un proyecto de Google Cloud con Drive API habilitada y una carpeta de Drive con documentos autorizados.
+
+No se deben incluir claves, tokens ni documentos privados en GitHub.
+
+## Instalación en Windows
+
+Desde PowerShell, en la raíz del proyecto:
 
 ```powershell
 py -m venv .venv
@@ -38,114 +82,161 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Edita `.env`: define `OPENAI_API_KEY`, un `OPENAI_MODEL` compatible con File Search y `GOOGLE_DRIVE_FOLDER_ID`. La plantilla `.env.example` solo contiene nombres de variables y placeholders seguros; no agregues valores reales a archivos versionados. `VECTOR_STORE_ID` se deja vacío la primera vez: el sistema lo guardará en el manifiesto. No insertes claves en el código ni en el navegador.
+`requirements.txt` incluye dependencias de ejecución y de pruebas para mantener una instalación reproducible del proyecto.
 
-## 4. Ejecutar localmente
+## Variables locales
+
+Edita `.env` solo en la máquina local. La plantilla contiene nombres y valores de ejemplo:
+
+| Variable | Uso local |
+|---|---|
+| `APP_ENV` | Debe ser `local`. |
+| `SYNC_ENABLED` | `true` permite la sincronización local. |
+| `OPENAI_API_KEY` | Clave privada del backend. |
+| `OPENAI_MODEL` | Modelo utilizado por el agente. |
+| `GOOGLE_DRIVE_FOLDER_ID` | Carpeta de Drive autorizada. |
+| `VECTOR_STORE_ID` | Vector Store existente; puede dejarse vacío en la primera sincronización. |
+| `LOCAL_ADMIN_KEY` | Clave administrativa opcional para `/api/sync`. |
+| `OPENAI_TIMEOUT_SECONDS` | Timeout del cliente OpenAI, entre 1 y 120 segundos. |
+| `PUBLIC_ASK_ENABLED` | En localhost queda habilitado por la configuración local. |
+| `DOCUMENT_INVENTORY_JSON` | No es necesario en localhost; se usa en producción. |
+
+Nunca pongas valores reales en `.env.example`, el frontend o archivos versionados.
+
+## OAuth de Google Drive
+
+La autenticación de Drive es exclusivamente local:
+
+1. Habilita Google Drive API en Google Cloud.
+2. Configura el consentimiento OAuth.
+3. Descarga credenciales de tipo Desktop y guárdalas como `credentials.json` en la raíz local.
+4. Define `GOOGLE_DRIVE_FOLDER_ID` en `.env`.
+5. La primera sincronización abre el navegador mediante `InstalledAppFlow`.
+6. Google autoriza el alcance de lectura y la aplicación guarda `token.json` localmente.
+
+`credentials.json` y `token.json` están excluidos por `.gitignore`. Vercel no ejecuta este flujo.
+
+## Ejecución local
 
 ```powershell
-python run_local.py
+.\.venv\Scripts\python.exe run_local.py
 ```
 
-Abre <http://127.0.0.1:5000>. Usa **Sincronizar desde Drive** para autenticar Google, descargar/exportar los archivos autorizados e indexarlos. La primera ejecución abre el navegador OAuth en la computadora donde está corriendo Python. Después escribe preguntas sobre el contenido. Para ensayar recuperación, desactiva **File Search (RAG)** y repite exactamente la misma pregunta.
+Abre <http://127.0.0.1:5000>.
 
-**Importante:** la sincronización usa una solicitud HTTP en localhost. Si estableces `LOCAL_ADMIN_KEY`, proporciona la cabecera `X-Admin-Key` mediante Thunder Client para `/api/sync` (el botón web no envía claves administrativas). Ejecuta el backend en `127.0.0.1`, no en `0.0.0.0`.
+La sincronización se solicita desde la interfaz o mediante `POST /api/sync`. Solo se acepta desde loopback y puede requerir la cabecera `X-Admin-Key` si `LOCAL_ADMIN_KEY` está configurada.
 
-## 5. Endpoints
+## Endpoints
 
-| Método | Ruta | Función |
+| Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/api/health` | Comprueba configuración y servidor. |
-| GET | `/api/documents` | Documentos ya indexados (manifiesto local). |
-| POST | `/api/sync` | Indexa cambios, requiere cliente desde loopback. |
-| POST | `/api/ask` | Pregunta con `question` y `use_search`. |
+| `GET` | `/` | Sirve `index.html`. |
+| `GET` | `/assets/...` | Sirve CSS y JavaScript estáticos. |
+| `GET` | `/api/health` | Informa estado, entorno y capacidades sin mostrar secretos. |
+| `GET` | `/api/documents` | Devuelve nombres y URLs públicas de la biblioteca. |
+| `POST` | `/api/ask` | Recibe `question` y `use_search`. |
+| `POST` | `/api/sync` | Sincroniza solo en localhost. Está bloqueado en producción. |
 
-Ejemplo JSON para Thunder Client:
+Ejemplo de solicitud:
 
 ```json
-{"question": "¿Qué documentos tratan sobre AWS RDS?", "use_search": true}
+{
+  "question": "¿De qué trata el documento?",
+  "use_search": true
+}
 ```
 
-## 6. Experimentos
+Las preguntas deben tener entre 3 y 3000 caracteres. Las preguntas ambiguas solicitan aclaración antes de consultar documentos.
 
-1. Ejecuta una pregunta muy específica presente en los archivos **sin File Search**.
-2. Repite **con File Search**: inspecciona contenido y fuentes (anotaciones verificadas).
-3. Prueba temas ausentes: el agente debe declarar insuficiencia de información.
-4. Agrega un documento con un dato singular, sincroniza y vuelve a preguntar.
-5. Modifica un documento, vuelve a sincronizar y verifica que no se duplican registros en el manifiesto.
-6. Elimina un documento de prueba del Drive autorizado, sincroniza y comprueba que desaparece del manifiesto.
+## Sincronización e indexación
 
-**Limitaciones:** las búsquedas RAG pueden generar errores; comprueba siempre las respuestas contra las fuentes. La eliminación del índice tiene **consistencia eventual** y puede tardar en reflejarse. Los resultados sin citas explícitas no se presentan como fuentes. La actualización de un mismo archivo puede crear cargos transitorios mientras se reemplaza el anterior.
+La sincronización local lista los archivos compatibles de la carpeta configurada, compara sus `drive_id` y `modifiedTime` con `data/manifest.json`, y conserva los documentos sin cambios. Los nuevos o modificados se cargan al Vector Store. Las versiones antiguas se eliminan después de indexar correctamente la nueva versión. Los archivos que ya no están en Drive se retiran del Vector Store y del manifiesto.
 
-## 7. Pruebas automáticas
+La sincronización puede consumir recursos de Google y OpenAI. No se ejecuta desde Vercel y no debe exponerse públicamente.
 
-```powershell
-pytest -q
-```
+En una consulta RAG, el agente recupera fragmentos del Vector Store, verifica que correspondan al referente preguntado y genera una respuesta estructurada. Solo los fragmentos utilizados y relacionados con registros válidos producen fuentes verificables.
 
-Las pruebas son locales y no requieren claves reales ni consumen OpenAI.
-
-## 8. Git/GitHub y reto autónomo Vercel
-
-```powershell
-git init
-git add .
-git commit -m "chore: estructura inicial del agente documental"
-```
-
-Publica solamente el código; confirma `.gitignore`. **NO publiques este proyecto en Vercel sin adaptaciones de seguridad.** OAuth Desktop, `token.json`, `manifest.json`, la ausencia de sesiones de usuario y el endpoint de preguntas no son adecuados para Internet abierto. Para producción, investiga OAuth tipo **Web application**, redirecciones autorizadas, sesiones, almacenamiento persistente de tokens, control de acceso documental por usuario, protección del endpoint `/api/ask`, persistencia compartida del índice y cuotas. Los archivos locales de una función serverless pueden ser efímeros. Las variables de entorno deben configurarse en la plataforma, nunca en el frontend.
-
-## 9. Costos y privacidad
-
-OpenAI cobra por el uso de modelos, búsqueda y almacenamiento según su tarifario vigente. No subas a OpenAI documentos confidenciales, datos personales o material sin permiso del propietario. El material descargado se transmite a OpenAI para indexación. Revoca y rota cualquier credencial filtrada, incluso si ya fue borrada de GitHub.
-
-## Entrega
-
-## 10. Preparacion actual para Vercel (Camino 1)
-
-La arquitectura prevista para Vercel es de consultas documentales. Google Drive y OAuth Desktop permanecen en localhost; Vercel no necesita `credentials.json`, `token.json` ni ejecutar `InstalledAppFlow`. La sincronizacion local actualiza el Vector Store y el manifiesto local. Despues de cambios documentales, se debe generar y configurar nuevamente el inventario de produccion.
-
-### FastAPI y archivos estaticos
-
-`run_local.py` importa `app` desde `app.main` y solo inicia Uvicorn dentro de `if __name__ == "__main__"`. Puede importarse como aplicacion ASGI sin arrancar un servidor manualmente. El nombre separado evita la colision entre un modulo raiz y el paquete `app/`, permitiendo que Vercel detecte `app/main.py` como aplicacion ASGI. No se requiere `vercel.json` para esta configuracion basica. Si mas adelante se necesita fijar duracion, region o exclusiones del bundle, se podra agregar explicitamente.
-
-La ruta `/` sirve `index.html` y `/assets` sirve CSS y JavaScript mediante `StaticFiles`. El frontend usa rutas relativas como `/api/ask` y `/api/documents`, por lo que puede convivir con el backend en el mismo dominio de Vercel.
-
-### Variables de entorno
-
-En localhost se usan `APP_ENV=local`, `SYNC_ENABLED=true`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `GOOGLE_DRIVE_FOLDER_ID` y, opcionalmente, `VECTOR_STORE_ID`, `LOCAL_ADMIN_KEY` y `OPENAI_TIMEOUT_SECONDS`.
-
-En Vercel se deben configurar como variables privadas:
-
-- `APP_ENV=production`
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
-- `VECTOR_STORE_ID`
-- `DOCUMENT_INVENTORY_JSON`
-- `OPENAI_TIMEOUT_SECONDS=30`
-- `PUBLIC_ASK_ENABLED=false` hasta configurar y probar el WAF
-
-`GOOGLE_DRIVE_FOLDER_ID`, `credentials.json`, `token.json` y `SYNC_ENABLED` no son necesarios para el runtime publico. La sincronizacion queda bloqueada en produccion.
-
-### Inventario de produccion
-
-`DOCUMENT_INVENTORY_JSON` contiene unicamente `openai_file_id`, `name` y `url`. El backend valida JSON, campos obligatorios y duplicados. `/api/documents` solo devuelve `name` y `url`; los identificadores internos no se envian al frontend.
-
-No se debe publicar el inventario real en GitHub ni incluir el `data/manifest.json` local. Si se elimina, modifica o agrega un PDF, primero se sincroniza desde localhost, se verifica el Vector Store y despues se actualiza la variable de produccion.
-
-### Seguridad y disponibilidad
-
-`PUBLIC_ASK_ENABLED=false` deshabilita `/api/ask` en produccion antes de inicializar el cliente OpenAI. Para habilitar consultas, primero se debe crear en Vercel una regla WAF de rate limiting para `POST /api/ask`, por IP, y establecer limites de gasto y alertas en el proyecto de OpenAI. El codigo valida preguntas de 3 a 3000 caracteres y usa un timeout de OpenAI configurable entre 1 y 120 segundos, sin reintentos automaticos.
-
-El timeout del cliente OpenAI no sustituye el limite de duracion de Vercel. Si se necesita fijarlo, se configura desde Functions en Vercel o mediante `maxDuration` en `vercel.json`, respetando el plan contratado. No se debe habilitar la sincronizacion publica ni colocar claves en JavaScript.
-
-### Pruebas antes de publicar
-
-Desde la raiz del proyecto:
+## Pruebas automatizadas
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests -q
 ```
 
-Antes de un despliegue publico se debe comprobar que localhost sigue sincronizando, que produccion carga el inventario sin leer el manifiesto local, que `/api/documents` no expone `openai_file_id`, que `/api/sync` permanece bloqueado, que `/api/ask` no realiza llamadas mientras `PUBLIC_ASK_ENABLED=false`, y que el visor conserva los enlaces publicos de Google Drive.
+Las pruebas usan mocks y no requieren consultas reales a OpenAI, sincronización de Drive ni modificaciones del Vector Store.
 
-Repositorio GitHub con historia de commits, URL de Vercel si culminas el reto (o documentación del bloqueo), y conclusiones sobre OAuth, Google Drive API, RAG, File Search, FastAPI, OOP, Git/GitHub y seguridad.
+## Despliegue en Vercel
+
+Vercel detecta la aplicación FastAPI mediante la aplicación ASGI exportada por `app/main.py` y las dependencias de `requirements.txt`. No se requiere `vercel.json` para esta configuración básica.
+
+El frontend se sirve desde la misma aplicación: `/` devuelve `index.html` y `/assets` sirve los recursos estáticos. Las llamadas JavaScript usan rutas relativas del mismo dominio.
+
+### Variables de producción
+
+Configura estas variables como privadas en Vercel:
+
+| Variable | Configuración recomendada |
+|---|---|
+| `APP_ENV` | `production` |
+| `OPENAI_API_KEY` | Clave privada del backend |
+| `OPENAI_MODEL` | Modelo aprobado para la aplicación |
+| `VECTOR_STORE_ID` | Vector Store ya sincronizado |
+| `DOCUMENT_INVENTORY_JSON` | Inventario de producción con `openai_file_id`, `name` y `url` |
+| `OPENAI_TIMEOUT_SECONDS` | Por ejemplo, `30` |
+| `PUBLIC_ASK_ENABLED` | `false` hasta configurar protecciones contra abuso |
+
+En Vercel no son necesarios `GOOGLE_DRIVE_FOLDER_ID`, `credentials.json`, `token.json` ni `SYNC_ENABLED`. `/api/sync` permanece deshabilitado.
+
+`DOCUMENT_INVENTORY_JSON` no se publica en GitHub. Debe contener únicamente los registros necesarios para resolver fuentes y mostrar la biblioteca. `/api/documents` no expone `openai_file_id` al navegador.
+
+### Diferencias entre entornos
+
+| Capacidad | Localhost | Vercel |
+|---|---|---|
+| Entorno | `APP_ENV=local` | `APP_ENV=production` |
+| Google Drive OAuth | Disponible | No se ejecuta |
+| Sincronización | Disponible desde loopback | Bloqueada |
+| Inventario | `data/manifest.json` | `DOCUMENT_INVENTORY_JSON` |
+| Vector Store | Configurado localmente | `VECTOR_STORE_ID` privado |
+| Consultas RAG | Disponibles localmente | Controladas por `PUBLIC_ASK_ENABLED` |
+| Frontend y biblioteca | Disponibles | Disponibles |
+
+### Actualizar documentos en producción
+
+1. Ejecuta la sincronización desde localhost.
+2. Comprueba que el manifiesto y el Vector Store contienen los documentos esperados.
+3. Genera un nuevo inventario con `openai_file_id`, `name` y `url`.
+4. Actualiza `DOCUMENT_INVENTORY_JSON` en Vercel sin guardarlo en Git.
+5. Verifica `/api/documents` y las fuentes antes de habilitar consultas públicas.
+
+La actualización del Vector Store y la actualización del inventario de producción son operaciones separadas.
+
+## Seguridad, costos y mantenimiento
+
+- `.env`, credenciales OAuth, tokens, manifiesto y respaldos están excluidos por `.gitignore`.
+- Las claves solo se leen en el backend y nunca se envían al frontend.
+- `PUBLIC_ASK_ENABLED=false` es el valor seguro inicial en producción.
+- Antes de habilitar consultas públicas, configura rate limiting de Vercel WAF para `POST /api/ask`.
+- Configura límites de gasto y alertas en el proyecto de OpenAI.
+- Conserva límites de pregunta y timeout para reducir abusos y solicitudes indefinidas.
+- No uses contadores en memoria como único rate limiter en un entorno serverless.
+- Mantén la sincronización fuera de Vercel.
+- Revisa periódicamente que el inventario coincida con el Vector Store.
+- Los enlaces de PDF dependen de los permisos públicos de Google Drive.
+- La duración máxima de la Function de Vercel es independiente del timeout de OpenAI y debe ajustarse según el plan contratado.
+
+## Limitaciones actuales
+
+- La persistencia del inventario de producción depende de la variable configurada en Vercel.
+- Cambiar documentos requiere sincronizar localmente y actualizar manualmente el inventario de producción.
+- La aplicación no implementa cuentas de usuario para visitantes.
+- El rate limiting persistente debe configurarse en Vercel WAF.
+- Google Drive puede impedir la vista previa incrustada; en ese caso se usa el enlace original.
+- La eliminación de archivos del Vector Store puede tener consistencia eventual.
+- Las respuestas RAG deben revisarse junto con sus fuentes documentales.
+
+## Referencias operativas
+
+- Producción: <https://agente-documental-tic-one.vercel.app/>
+- Desarrollo local: <http://127.0.0.1:5000>
+- Rama de preparación: `main`
+- Rama estable local: `feature/agente-documental`
