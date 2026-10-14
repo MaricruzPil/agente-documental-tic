@@ -1,0 +1,12 @@
+.venv/
+.env.example
+.env
+credentials.json
+token.json
+__pycache__/
+*.pyc
+.pytest_cache/
+data/*
+!data/.gitkeep
+.DS_Store
+credentials.json
