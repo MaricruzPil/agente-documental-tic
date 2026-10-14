@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
 import logging
 import json
+import subprocess
+import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 from app.main import app
@@ -15,10 +18,26 @@ from app.services.sync_service import InventoryConfigurationError
 
 client = TestClient(app)
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 def test_home():
     r = client.get("/")
     assert r.status_code == 200
     assert "Archivo TIC" in r.text
+
+
+def test_local_launcher_imports_asgi_without_module_name_collision():
+    result = subprocess.run(
+        [sys.executable, "-c", "import run_local; print(type(run_local.app).__name__)"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "FastAPI"
+    assert not (PROJECT_ROOT / "app.py").exists()
 
 def test_health():
     assert client.get("/api/health").status_code == 200

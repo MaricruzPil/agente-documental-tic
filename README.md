@@ -43,7 +43,7 @@ Edita `.env`: define `OPENAI_API_KEY`, un `OPENAI_MODEL` compatible con File Sea
 ## 4. Ejecutar localmente
 
 ```powershell
-python app.py
+python run_local.py
 ```
 
 Abre <http://127.0.0.1:5000>. Usa **Sincronizar desde Drive** para autenticar Google, descargar/exportar los archivos autorizados e indexarlos. La primera ejecución abre el navegador OAuth en la computadora donde está corriendo Python. Después escribe preguntas sobre el contenido. Para ensayar recuperación, desactiva **File Search (RAG)** y repite exactamente la misma pregunta.
@@ -106,7 +106,7 @@ La arquitectura prevista para Vercel es de consultas documentales. Google Drive 
 
 ### FastAPI y archivos estaticos
 
-`app.py` importa `app` desde `app.main` y solo inicia Uvicorn dentro de `if __name__ == "__main__"`. Puede importarse como aplicacion ASGI sin arrancar un servidor manualmente. Vercel detecta FastAPI mediante la aplicacion ASGI exportada y las dependencias de `requirements.txt`; no se requiere `vercel.json` para esta configuracion basica. Si mas adelante se necesita fijar duracion, region o exclusiones del bundle, se podra agregar explicitamente.
+`run_local.py` importa `app` desde `app.main` y solo inicia Uvicorn dentro de `if __name__ == "__main__"`. Puede importarse como aplicacion ASGI sin arrancar un servidor manualmente. El nombre separado evita la colision entre un modulo raiz y el paquete `app/`, permitiendo que Vercel detecte `app/main.py` como aplicacion ASGI. No se requiere `vercel.json` para esta configuracion basica. Si mas adelante se necesita fijar duracion, region o exclusiones del bundle, se podra agregar explicitamente.
 
 La ruta `/` sirve `index.html` y `/assets` sirve CSS y JavaScript mediante `StaticFiles`. El frontend usa rutas relativas como `/api/ask` y `/api/documents`, por lo que puede convivir con el backend en el mismo dominio de Vercel.
 
