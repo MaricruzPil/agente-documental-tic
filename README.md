@@ -38,7 +38,7 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Edita `.env`: define `OPENAI_API_KEY`, un `OPENAI_MODEL` compatible con File Search y `GOOGLE_DRIVE_FOLDER_ID`. `VECTOR_STORE_ID` se deja vacío la primera vez: el sistema lo guardará en el manifiesto. No insertes claves en el código ni en el navegador.
+Edita `.env`: define `OPENAI_API_KEY`, un `OPENAI_MODEL` compatible con File Search y `GOOGLE_DRIVE_FOLDER_ID`. La plantilla `.env.example` solo contiene nombres de variables y placeholders seguros; no agregues valores reales a archivos versionados. `VECTOR_STORE_ID` se deja vacío la primera vez: el sistema lo guardará en el manifiesto. No insertes claves en el código ni en el navegador.
 
 ## 4. Ejecutar localmente
 
