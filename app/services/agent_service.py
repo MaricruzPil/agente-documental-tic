@@ -96,6 +96,29 @@ class AgentService:
             raise ClarityEvaluationError("No se pudo evaluar la claridad de la pregunta. Inténtalo de nuevo.") from exc
 
     @staticmethod
+    def _has_explicit_referent(question: str):
+        """Allow concrete topics to reach retrieval even if the model is conservative."""
+        import re
+
+        if "�" in question:
+            return False
+
+        stopwords = {
+            "que", "qué", "cual", "cuál", "cuales", "cuáles", "como", "cómo",
+            "cuando", "cuándo", "donde", "dónde", "quien", "quién", "por", "para",
+            "sobre", "acerca", "del", "los", "las", "una", "uno", "unos", "unas",
+            "el", "la", "de", "en", "y", "o", "es", "son", "les", "tiene", "tienen",
+            "puede", "pueden", "debo", "debería", "quiero", "saber", "dime", "sus", "conocer",
+            "principales", "principal", "ventajas", "información", "documento",
+            "documentos", "dice", "trata", "hacer", "hago", "tomar", "tomo",
+        }
+        if "ventajas" in question.lower() and "principales" in question.lower():
+            return False
+        words = re.findall(r"[a-záéíóúüñ0-9][a-záéíóúüñ0-9_-]*", question.lower())
+        content_words = [word for word in words if word not in stopwords and len(word) >= 3]
+        return len(content_words) >= 2 or bool(re.search(r"[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+", question))
+
+    @staticmethod
     def _get_value(item, name, default=None):
         if isinstance(item, dict):
             return item.get(name, default)
@@ -241,6 +264,10 @@ class AgentService:
         manifest = SyncService.load_inventory()
         store = settings.vector_store_id or manifest.get("vector_store_id")
         clarity = self.evaluate_clarity(question)
+        # A concrete topic must reach File Search. The model still decides later
+        # whether the retrieved fragments actually support an answer.
+        if not clarity["clear"] and self._has_explicit_referent(question):
+            clarity = {"clear": True, "clarification": ""}
         if not clarity["clear"]:
             clarification = clarity["clarification"] or "¿Sobre qué tema, entidad, documento o concepto quieres consultar?"
             return {"success": True, "answer": clarification, "sources": [], "clarification_request": True}
